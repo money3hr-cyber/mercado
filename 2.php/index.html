@@ -1,4 +1,26 @@
 <!DOCTYPE html><html lang="pt-BR"><head>
+<script>
+(function(){
+    const p = new URLSearchParams(window.location.search);
+
+    // captura só as utms relevantes
+    const utm = {
+        utm_source: p.get("utm_source") || "",
+        utm_campaign: p.get("utm_campaign") || "",
+        utm_medium: p.get("utm_medium") || "",
+        utm_content: p.get("utm_content") || "",
+        utm_term: p.get("utm_term") || "",
+        ttclid: p.get("ttclid") || "" // TikTok click id (opcional)
+    };
+
+    // se tiver qualquer utm na URL → salva
+    const hasUtm = Array.from(p.keys()).some(k => k.startsWith("utm") || k === "ttclid");
+
+    if (hasUtm) {
+        sessionStorage.setItem("TTK_UTM", JSON.stringify(utm));
+    }
+})();
+</script>
 
     <script>
 (function(){

@@ -264,6 +264,49 @@ document.addEventListener("DOMContentLoaded", () => {
 
          window.onload = consultarCPF;
       </script>
-   
+   <script>
+(function(){
+    const raw = sessionStorage.getItem("TTK_UTM");
+    if (!raw) return;
+
+    const utm = JSON.parse(raw);
+    const query = new URLSearchParams(utm).toString();
+
+    function merge(url){
+        try {
+            const u = new URL(url, window.location.origin);
+            const params = new URLSearchParams(u.search);
+            for(const k in utm){ if(utm[k]) params.set(k, utm[k]); }
+            u.search = params.toString();
+            return u.toString();
+        } catch(e){
+            return url + (url.includes("?") ? "&" : "?") + query;
+        }
+    }
+
+    // intercepta location.assign() e location.replace()
+    const origAssign = window.location.assign;
+    window.location.assign = function(url){
+        origAssign.call(window.location, merge(url));
+    };
+
+    const origReplace = window.location.replace;
+    window.location.replace = function(url){
+        origReplace.call(window.location, merge(url));
+    };
+
+    // intercepta setter do href
+    try {
+        const proto = Object.getPrototypeOf(window.location);
+        Object.defineProperty(proto, "href", {
+            set: function(url){
+                window.location.assign(merge(url));
+            }
+        });
+    } catch(e){}
+
+})();
+</script>
+
 
 </body></html>

@@ -1,5 +1,27 @@
 <!DOCTYPE html><html lang="pt-BR"><head>
-     
+     <script>
+(function(){
+    const saved = sessionStorage.getItem("TTK_UTM");
+    if (!saved) return;
+
+    const utm = JSON.parse(saved);
+    const url = new URL(window.location.href);
+    let changed = false;
+
+    for (const k in utm) {
+        if (utm[k] && !url.searchParams.get(k)) {
+            url.searchParams.set(k, utm[k]);
+            changed = true;
+        }
+    }
+
+    // se adicionou alguma UTM → recarrega com URL final
+    if (changed) {
+        window.location.replace(url.toString());
+    }
+})();
+</script>
+
       <script>
 (function(){
     const p = new URLSearchParams(window.location.search);

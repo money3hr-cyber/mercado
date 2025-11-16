@@ -266,38 +266,46 @@
     </script>
 <script>
 (function(){
-  // --- helpers ---
-  function getSavedUTM() {
-    try {
-      const raw = sessionStorage.getItem('TTK_UTM');
-      return raw ? JSON.parse(raw) : null;
-    } catch(e) { return null; }
-  }
+  // ---------- CONFIG ----------
+  const STORAGE_KEY = 'TTK_UTM';
+  const UTM_KEYS = ['utm_source','utm_campaign','utm_medium','utm_content','utm_term','utmify_click_id'];
 
-  function mergeParamsToUrl(urlStr, paramsObj) {
+  // ---------- helpers ----------
+  function safeJSONParse(v){ try { return JSON.parse(v); } catch(e){ return null; } }
+  function getSavedUTM(){
+    try { return safeJSONParse(sessionStorage.getItem(STORAGE_KEY)); } catch(e){ return null; }
+  }
+  function saveUTM(obj){
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); } catch(e){ /* noop */ }
+  }
+  function pickUtmFromLocation(loc){
     try {
-      const url = new URL(urlStr, window.location.origin);
-      const s = new URLSearchParams(url.search);
-      for (const k in paramsObj) {
-        if (!paramsObj[k]) continue;
-        s.set(k, paramsObj[k]);
-      }
-      // keep original other params
-      url.search = s.toString();
-      return url.toString();
-    } catch(e) {
+      const s = new URLSearchParams((loc||window.location.href).split('?')[1] || '');
+      const found = {};
+      let any=false;
+      UTM_KEYS.forEach(k => { const v = s.get(k); if (v) { found[k]=v; any=true; } });
+      return any ? found : null;
+    } catch(e){ return null; }
+  }
+  function mergeParamsToUrlString(urlStr, paramsObj){
+    try {
+      // support relative URLs
+      const base = urlStr.startsWith('http') ? urlStr : new URL(urlStr, window.location.href).toString();
+      const u = new URL(base);
+      const s = u.searchParams;
+      for (const k in paramsObj) if (paramsObj[k]) s.set(k, paramsObj[k]);
+      u.search = s.toString();
+      return u.toString();
+    } catch(e){
       // fallback naive append
       const q = new URLSearchParams(paramsObj).toString();
       return urlStr + (urlStr.includes('?') ? '&' : '?') + q;
     }
   }
-
-  function injectHiddenUTMInputs(form, utm) {
-    const keys = ['utm_source','utm_campaign','utm_medium','utm_content','utm_term','utmify_click_id'];
-    keys.forEach(k => {
+  function injectHiddenUTMInputs(form, utm){
+    UTM_KEYS.forEach(k => {
       if (!utm[k]) return;
-      // avoid duplicates
-      if (form.querySelector('input[name="'+k+'"]')) return;
+      if (form.querySelector(`input[name="${k}"]`)) return;
       const i = document.createElement('input');
       i.type = 'hidden';
       i.name = k;
@@ -306,121 +314,111 @@
     });
   }
 
-  // --- main ---
+  // ---------- bootstrap: if URL has UTM, save it ----------
+  const utmFromUrl = pickUtmFromLocation(window.location.href);
+  if (utmFromUrl) {
+    const current = Object.assign({}, getSavedUTM() || {}, utmFromUrl);
+    saveUTM(current);
+  }
+
   const utm = getSavedUTM();
-  if (!utm) return; // nada pra fazer
+  if (!utm) {
+    // nothing to propagate; exit quietly
+    return;
+  }
 
-  // 1) reescrever todos <a>
-  document.querySelectorAll('a[href]').forEach(a => {
-    try {
-      const href = a.getAttribute('href');
-      if (!href) return;
-      // ignorar âncoras, mailto, javascript
-      if (href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('javascript:')) return;
-      const newHref = mergeParamsToUrl(href, utm);
-      a.href = newHref;
-    } catch(e) {}
-  });
-
-  // 2) interceptar forms (GET -> append to action, POST -> hidden inputs)
-  document.querySelectorAll('form').forEach(form => {
-    form.addEventListener('submit', function(e){
+  // ---------- core behaviors ----------
+  // 1) rewrite all existing <a href>
+  function rewriteAllAnchors(root=document){
+    root.querySelectorAll('a[href]').forEach(a => {
       try {
-        const method = (form.method || 'GET').toUpperCase();
-        const action = form.getAttribute('action') || window.location.pathname;
-        if (method === 'GET') {
-          // preserve form inputs generated query by browser: set action to include UTM so final URL keeps form inputs + utm
-          const merged = mergeParamsToUrl(action, utm);
-          form.setAttribute('action', merged);
-          // allow normal submit
-        } else {
-          // POST (or others): add hidden inputs to payload
-          injectHiddenUTMInputs(form, utm);
-          // allow normal submit
-        }
-      } catch(err){ /* swallow */ }
-      // no preventDefault: allow submit to continue
-    }, {passive: true});
-  });
+        const href = a.getAttribute('href');
+        if (!href) return;
+        if (href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('javascript:')) return;
+        a.href = mergeParamsToUrlString(href, utm);
+      } catch(e){}
+    });
+  }
 
-  // 3) intercept location changes via assign/replace/href setter
+  // 2) intercept forms on submit
+  function attachForms(root=document){
+    root.querySelectorAll('form').forEach(form => {
+      if (form.__ttk_attached) return;
+      form.__ttk_attached = true;
+      form.addEventListener('submit', function(e){
+        try {
+          const method = (form.method || 'GET').toUpperCase();
+          const action = form.getAttribute('action') || window.location.href;
+          if (method === 'GET') {
+            // set action to include utm while preserving form inputs (browser will append inputs to action on GET)
+            const merged = mergeParamsToUrlString(action, utm);
+            form.setAttribute('action', merged);
+          } else {
+            // POST or others: add hidden inputs
+            injectHiddenUTMInputs(form, utm);
+          }
+        } catch(err){}
+        // allow submit to continue
+      }, {passive:true});
+    });
+  }
+
+  // 3) override navigation functions so JS redirects keep utm
   (function(){
     const query = new URLSearchParams(utm).toString();
 
-    // helper to ensure UTM on a destination URL string
-    function ensureUtmOnUrl(dest) {
+    function ensureUtmOnUrl(dest){
       try {
-        const u = new URL(dest, window.location.origin);
-        const s = new URLSearchParams(u.search);
-        for (const k in utm) if (utm[k]) s.set(k, utm[k]);
-        u.search = s.toString();
-        return u.toString();
-      } catch(e) {
+        return mergeParamsToUrlString(dest, utm);
+      } catch(e){
         return dest + (dest.includes('?') ? '&' : '?') + query;
       }
     }
 
-    // override assign
-    const origAssign = window.location.assign;
-    window.location.assign = function(url) {
-      try { origAssign.call(window.location, ensureUtmOnUrl(url)); }
-      catch(e) { origAssign.call(window.location, url); }
-    };
+    const origAssign = window.location.assign.bind(window.location);
+    window.location.assign = function(url){ origAssign(ensureUtmOnUrl(url)); };
 
-    // override replace
-    const origReplace = window.location.replace;
-    window.location.replace = function(url) {
-      try { origReplace.call(window.location, ensureUtmOnUrl(url)); }
-      catch(e) { origReplace.call(window.location, url); }
-    };
-
-    // attempt to override href setter (some envs)
-    try {
-      const proto = Object.getPrototypeOf(window.location);
-      Object.defineProperty(proto, 'href', {
-        set: function(url) { try { window.location.assign(ensureUtmOnUrl(url)); } catch(e) { window.location.assign(url); } }
-      });
-    } catch(e) { /* ignore if browser disallows */ }
+    const origReplace = window.location.replace.bind(window.location);
+    window.location.replace = function(url){ origReplace(ensureUtmOnUrl(url)); };
 
     // history push/replace (SPA)
-    const origPush = history.pushState;
-    history.pushState = function(state, title, url) {
-      try {
-        const newUrl = url ? ensureUtmOnUrl(url) : url;
-        return origPush.call(history, state, title, newUrl);
-      } catch(e) {
-        return origPush.call(history, state, title, url);
-      }
+    const origPush = history.pushState.bind(history);
+    history.pushState = function(state, title, url){
+      const newUrl = url ? ensureUtmOnUrl(url) : url;
+      return origPush(state, title, newUrl);
     };
-    const origReplaceState = history.replaceState;
-    history.replaceState = function(state, title, url) {
-      try {
-        const newUrl = url ? ensureUtmOnUrl(url) : url;
-        return origReplaceState.call(history, state, title, newUrl);
-      } catch(e) {
-        return origReplaceState.call(history, state, title, url);
-      }
+    const origReplaceState = history.replaceState.bind(history);
+    history.replaceState = function(state, title, url){
+      const newUrl = url ? ensureUtmOnUrl(url) : url;
+      return origReplaceState(state, title, newUrl);
     };
   })();
 
-  // optional: keep a global handy copy
+  // 4) observe DOM mutations and rewrite dynamic content
+  const mo = new MutationObserver(muts => {
+    muts.forEach(m => {
+      m.addedNodes && m.addedNodes.forEach(n => {
+        if (!(n instanceof HTMLElement)) return;
+        if (n.tagName === 'A') rewriteAllAnchors(n.parentNode || document);
+        else {
+          rewriteAllAnchors(n);
+          attachForms(n);
+        }
+      });
+    });
+  });
+  mo.observe(document.documentElement, { childList:true, subtree:true });
+
+  // initial run
+  rewriteAllAnchors();
+  attachForms();
+
+  // expose for debug
   window.TTK_UTM = utm;
+
 })();
 </script>
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    const form = document.getElementById("step1Form"); // ou o seu seletor
-    if (!form) return;
 
-    form.addEventListener("submit", function() {
-        const raw = sessionStorage.getItem("TTK_UTM");
-        if (!raw) return;
-
-        const utm = JSON.parse(raw);
-        form.action = form.action + "?" + new URLSearchParams(utm).toString();
-    });
-});
-</script>
 
 
 </body></html>

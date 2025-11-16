@@ -20,6 +20,23 @@
     sessionStorage.setItem("TTK_UTM", JSON.stringify(utm));
 })();
 </script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const raw = sessionStorage.getItem("TTK_UTM");
+    if(!raw) return;
+
+    const utm = JSON.parse(raw);
+    const query = new URLSearchParams(utm).toString();
+
+    document.querySelectorAll("a").forEach(a => {
+        if (a.href.startsWith("http") || a.href.endsWith(".php") || a.href.endsWith(".html")) {
+            const url = new URL(a.href, window.location.origin);
+            url.search = query;
+            a.href = url.toString();
+        }
+    });
+});
+</script>
 
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">

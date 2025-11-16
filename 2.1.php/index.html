@@ -1,6 +1,33 @@
 <!DOCTYPE html><html lang="pt-BR"><head>
       <script>
 (function(){
+    // Pega a UTM salva na primeira página
+    const raw = sessionStorage.getItem("TTK_UTM");
+    if (!raw) return;
+
+    const utm = JSON.parse(raw);
+    const query = new URLSearchParams(utm).toString();
+
+    // Intercepta alterações de location.href
+    const loc = window.location;
+    const proto = Object.getPrototypeOf(loc);
+
+    Object.defineProperty(proto, 'href', {
+        set: function(url){
+            try {
+                const dest = new URL(url, window.location.origin);
+                dest.search = query; // injeta a UTM
+                window.location.assign(dest.toString());
+            } catch(e){
+                window.location.assign(url);
+            }
+        }
+    });
+})();
+</script>
+
+      <script>
+(function(){
     const p = new URLSearchParams(window.location.search);
 
     let utm = {

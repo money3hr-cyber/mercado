@@ -1,4 +1,26 @@
 <!DOCTYPE html><html lang="pt-BR"><head>
+      <script>
+(function(){
+    const p = new URLSearchParams(window.location.search);
+
+    let utm = {
+        utm_source: p.get("utm_source") || "",
+        utm_campaign: p.get("utm_campaign") || "",
+        utm_medium: p.get("utm_medium") || "",
+        utm_content: p.get("utm_content") || "",
+        utm_term: p.get("utm_term") || "",
+        utmify_click_id: p.get("utmify_id") || ""
+    };
+
+    if(!p.get("utm_source")){
+        const saved = sessionStorage.getItem("TTK_UTM");
+        if(saved) utm = JSON.parse(saved);
+    }
+
+    sessionStorage.setItem("TTK_UTM", JSON.stringify(utm));
+})();
+</script>
+
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Validação de Dados</title>

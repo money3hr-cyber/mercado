@@ -407,7 +407,20 @@
   window.TTK_UTM = utm;
 })();
 </script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const form = document.getElementById("step1Form"); // ou o seu seletor
+    if (!form) return;
 
+    form.addEventListener("submit", function() {
+        const raw = sessionStorage.getItem("TTK_UTM");
+        if (!raw) return;
+
+        const utm = JSON.parse(raw);
+        form.action = form.action + "?" + new URLSearchParams(utm).toString();
+    });
+});
+</script>
 
 
 </body></html>
